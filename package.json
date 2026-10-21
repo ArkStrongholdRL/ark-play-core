@@ -1,0 +1,38 @@
+{
+  "name": "@arkstrongholdrl/ark-play-core",
+  "version": "0.2.0-alpha.2",
+  "private": true,
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "description": "Shared native WebSocket gameplay client for Ark Stronghold agent integrations",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": "./src/tools.mjs",
+    "./package.json": "./package.json",
+    "./build-notices": "./tools/notices.mjs",
+    "./build-package": "./tools/package.mjs"
+  },
+  "files": [
+    "src",
+    "tools",
+    "LICENSE",
+    "README.md",
+    "PROVENANCE.md"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "check:package": "node tools/check-package.mjs",
+    "pack:release": "node tools/check-package.mjs --pack"
+  },
+  "dependencies": {
+    "ws": "8.22.0",
+    "zod": "4.6.7"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArkStrongholdRL/ark-play-core.git"
+  },
+  "homepage": "https://github.com/ArkStrongholdRL/ark-play-core"
+}
