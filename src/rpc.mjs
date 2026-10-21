@@ -1,7 +1,6 @@
 // Native game-site /ws adapter. No private gameplay RPC or recording endpoints.
-import {readFileSync,existsSync} from 'node:fs';
-import {join} from 'node:path';
-import {homedir} from 'node:os';
+import {readFileSync} from 'node:fs';
+import {resolveConfig} from './config.mjs';
 import WebSocket from 'ws';
 import {SiteRuntime} from './site.mjs';
 import {canAct,projectNative} from './native-view.mjs';
@@ -11,11 +10,7 @@ const PUBLIC_KEYS=['phase','round','lastRound','modeId','difficulty','stageId','
   'bannedChess','bossId','bossRound','hiddenRound','bossPairs','spRound','combatMode','paused','players','draft','sp'];
 export class GameClient {
   constructor(config={}) {
-    const file=config.configFile||process.env.ARK_AGENT_CONFIG_FILE||join(homedir(),'.config/ark-play/client.json');
-    const defaults=existsSync(file)?JSON.parse(readFileSync(file,'utf8')):{};
-    const env=Object.fromEntries(Object.entries({url:process.env.ARK_AGENT_URL,tokenFile:process.env.ARK_AGENT_TOKEN_FILE,
-      headersFile:process.env.ARK_AGENT_HEADERS_FILE,sessionFile:process.env.ARK_AGENT_SESSION_FILE}).filter(([,v])=>v!==undefined));
-    this.config={...defaults,...env,...config};config=this.config;
+    this.config=resolveConfig(config);config=this.config;
     this.url=config.url||null;this.name=String(config.name||'Ark Agent').trim().slice(0,12)||'Ark Agent';
     if(this.url) {
       const u=new URL(this.url);

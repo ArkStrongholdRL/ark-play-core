@@ -12,7 +12,9 @@
     ".": "./src/tools.mjs",
     "./package.json": "./package.json",
     "./build-notices": "./tools/notices.mjs",
-    "./build-package": "./tools/package.mjs"
+    "./build-package": "./tools/package.mjs",
+    "./config": "./src/config.mjs",
+    "./configure": "./tools/configure.mjs"
   },
   "files": [
     "src",

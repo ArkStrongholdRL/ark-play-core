@@ -26,7 +26,7 @@ export async function packageClient({kind,root,sharedRoot=root,output}) {
       try {await copyFile(join(root,file),join(stage,file));}
       catch(error) {if(file!=='PUBLISH.md'||error.code!=='ENOENT')throw error;}
     }
-    await copyFile(join(sharedRoot,'tools/configure.mjs'),join(stage,'configure.mjs'));
+    await copyFile(join(root,'configure.mjs'),join(stage,'configure.mjs'));
     if(kind==='codex') {
       await mkdir(join(stage,'.agents/plugins'),{recursive:true});
       await copyFile(join(root,'.agents/plugins/marketplace.json'),join(stage,'.agents/plugins/marketplace.json'));

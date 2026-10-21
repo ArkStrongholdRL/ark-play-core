@@ -35,7 +35,7 @@ test('ZIP packaging tolerates absent optional PUBLISH and retains host/core sour
     await file(core,'tools/configure.mjs','// configure');await file(core,'src/tools.mjs','// shared');
     await file(core,'PROVENANCE.md','source attribution');await file(core,'LICENSE','GPL');
     await file(host,'package.json',JSON.stringify({name:'dsh-ark-stronghold',version:'1.0.0'}));
-    for(const name of ['README.md','LICENSE','client.mjs','site-url.mjs','site-loader.mjs','public/art.png','dist/public/art.png','dist/index.mjs'])await file(host,name,'fixture '+name);
+    for(const name of ['README.md','LICENSE','configure.mjs','client.mjs','site-url.mjs','site-loader.mjs','public/art.png','dist/public/art.png','dist/index.mjs'])await file(host,name,'fixture '+name);
     const result=await packageClient({kind:'dsh',root:host,sharedRoot:core,output});
     const archive=join(output,result.filename);
     const names=execFileSync('unzip',['-Z1',archive],{encoding:'utf8'}).split('\n');

@@ -39,3 +39,16 @@ Hosts: [Codex](https://github.com/HarcoChen/ArkStrongholdCodex),
 [DSH](https://github.com/HarcoChen/dsh-ArkStronghold).
 
 GPL-3.0-or-later. See LICENSE and PROVENANCE.md.
+
+## Shared connection settings
+
+Without an explicit site, clients use https://ark.minyako.top. Site roots and /ws
+URLs are normalized at the connection boundary. Defaults resolve from the saved
+client.json, then ARK_AGENT_URL / ARK_AGENT_ROOM_CODE, then host overrides.
+A saved roomCode is used by ark_start when omitted; an explicit empty string
+creates a solo game. Credentials are never included in model views.
+
+The configure export is an explicit CLI entry. Host builds bundle it into a
+standalone configure.mjs and packageClient includes that host-built file. It
+accepts --room-code and --update; updates preserve other saved fields and use an
+atomic file replacement. No settings command connects to the game site.

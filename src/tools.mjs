@@ -29,8 +29,8 @@ export function createTools(config={}) {
   };
   const tools=[
     {name:'ark_start',description:'开单人局，或按 roomCode 加入已有房间并准备，等待房主开始。房间号留空开单人局；加入时难度由房间决定。',
-      schema:z.object({difficulty:z.enum(['ABYSS','NORMAL','HARD']).default('ABYSS'),roomCode:z.string().trim().toUpperCase().regex(/^(?:[A-Z0-9]{4})?$/).optional().describe('四位房间号；省略使用DSH配置，空字符串开单人局')}),
-      execute:async(args,signal)=>show(await client.call({op:'start',difficulty:args.difficulty,roomCode:args.roomCode??config.roomCode},signal),true)},
+      schema:z.object({difficulty:z.enum(['ABYSS','NORMAL','HARD']).default('ABYSS'),roomCode:z.string().trim().toUpperCase().regex(/^(?:[A-Z0-9]{4})?$/).optional().describe('四位房间号；省略使用客户端配置，空字符串开单人局')}),
+      execute:async(args,signal)=>show(await client.call({op:'start',difficulty:args.difficulty,roomCode:args.roomCode??client.config.roomCode},signal),true)},
     {name:'ark_view',description:'恢复完整紧凑局面；若正在结算，插件内部处理至下一决策或终局再返回。用于上下文丢失、断线重连或动作结果不确定。',
       schema:z.object({}),readOnly:true,execute:async(_,signal)=>show(await client.call({op:'view'},signal),true)},
     {name:'ark_act',description:'按当前本地快照revision执行1至8步明确动作。拒绝或阶段/回合改变即停止本批；ready后自动完成战斗计算、上报和结算，返回下一决策局面或终局，不需轮询。站点暂停时返回暂停提示。',
