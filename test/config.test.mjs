@@ -14,6 +14,8 @@ test('default site and file/environment/host settings resolve in order',async()=
  try {
   assert.equal(resolveConfig({configFile:file},{}).url,'wss://ark.minyako.top/ws');
   assert.equal(resolveConfig({configFile:file},{}).name,'Ark Agent');
+  assert.equal(resolveConfig({configFile:file,client:'dsh-plugin'},{}).name,'蓝色大肥鱼');
+  assert.equal(resolveConfig({configFile:file,client:'codex-mcp'},{}).name,'笨蛋大肥龙');
   await writeFile(file,JSON.stringify({url:'https://file.example',roomCode:'ab12',name:'Doctor'}));
   assert.equal(resolveConfig({configFile:file},{}).roomCode,'AB12');
   const env={ARK_AGENT_URL:'https://env.example',ARK_AGENT_ROOM_CODE:'cd34'};
@@ -23,6 +25,7 @@ test('default site and file/environment/host settings resolve in order',async()=
   assert.equal(host.url,'wss://host.example/ws');assert.equal(host.roomCode,'');assert.equal(host.name,'Doctor');
   assert.equal(resolveConfig({configFile:file},{ARK_AGENT_NAME:'  小刻  '}).name,'小刻');
   assert.equal(resolveConfig({configFile:file,name:'Codex'},{ARK_AGENT_NAME:'小刻'}).name,'Codex');
+  for(const client of ['dsh-plugin','codex-mcp'])assert.equal(resolveConfig({configFile:file,client},{}).name,'Doctor');
   assert.equal(normalizePlayerName('  '),'Ark Agent');
   assert.throws(()=>normalizePlayerName('1234567890123'),/12/);
   for(const invalid of ['http://remote.example','https://name:pass@host.example','https://host.example?secret=1','https://host.example/path'])assert.throws(()=>normalizeSiteUrl(invalid));
@@ -70,6 +73,8 @@ test('CLI saves normalized settings, refuses overwrite, and explicitly updates w
   assert.equal(await readFile(file,'utf8'),before);
   assert.notEqual(spawnSync(process.execPath,[cli,'--out']).status,0);
   execFileSync(process.execPath,[cli,'--out',file,'--update','--name','']);
-  assert.equal(JSON.parse(await readFile(file,'utf8')).name,'Ark Agent');
+  assert.equal(JSON.parse(await readFile(file,'utf8')).name,'');
+  assert.equal(resolveConfig({configFile:file,client:'dsh-plugin'},{}).name,'蓝色大肥鱼');
+  assert.equal(resolveConfig({configFile:file,client:'codex-mcp'},{}).name,'笨蛋大肥龙');
  }finally{await rm(folder,{recursive:true,force:true});}
 });

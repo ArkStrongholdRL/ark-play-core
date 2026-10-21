@@ -54,5 +54,6 @@ accepts --room-code, --name and --update; updates preserve other saved fields an
 atomic file replacement. No settings command connects to the game site.
 
 Use `node configure.mjs --update --name "小刻"` to save a player name (up to 12
-characters). An empty name restores Ark Agent. Names do not affect LLM controller
+characters). An empty name restores the host default: 蓝色大肥鱼 for DSH and
+笨蛋大肥龙 for Codex (Ark Agent for other clients). Names do not affect LLM controller
 declarations. Hosts apply changed settings at the next safe game boundary.

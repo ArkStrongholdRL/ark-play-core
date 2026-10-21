@@ -3,10 +3,13 @@ import {existsSync,readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {homedir} from 'node:os';
 export const DEFAULT_SITE_URL='https://ark.minyako.top';
-export function normalizePlayerName(value) {
+export function defaultPlayerName(client) {
+  return {'dsh-plugin':'蓝色大肥鱼','codex-mcp':'笨蛋大肥龙'}[client]||'Ark Agent';
+}
+export function normalizePlayerName(value,fallback='Ark Agent') {
   const name=String(value??'').trim();
   if(name.length>12)throw new Error('玩家名最多 12 个字符');
-  return name||'Ark Agent';
+  return name||fallback;
 }
 export function normalizeSiteUrl(value) {
   const input=String(value??'').trim();
@@ -40,6 +43,6 @@ export function resolveConfig(config={},environment=process.env) {
   const resolved={...defaults,...env,...config};
   resolved.url=normalizeSiteUrl(resolved.url||DEFAULT_SITE_URL);
   resolved.roomCode=normalizeRoomCode(resolved.roomCode);
-  resolved.name=normalizePlayerName(resolved.name);
+  resolved.name=normalizePlayerName(resolved.name,defaultPlayerName(resolved.client));
   return resolved;
 }
