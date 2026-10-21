@@ -44,11 +44,15 @@ GPL-3.0-or-later. See LICENSE and PROVENANCE.md.
 
 Without an explicit site, clients use https://ark.minyako.top. Site roots and /ws
 URLs are normalized at the connection boundary. Defaults resolve from the saved
-client.json, then ARK_AGENT_URL / ARK_AGENT_ROOM_CODE, then host overrides.
+client.json, then ARK_AGENT_URL / ARK_AGENT_ROOM_CODE / ARK_AGENT_NAME, then host overrides.
 A saved roomCode is used by ark_start when omitted; an explicit empty string
 creates a solo game. Credentials are never included in model views.
 
 The configure export is an explicit CLI entry. Host builds bundle it into a
 standalone configure.mjs and packageClient includes that host-built file. It
-accepts --room-code and --update; updates preserve other saved fields and use an
+accepts --room-code, --name and --update; updates preserve other saved fields and use an
 atomic file replacement. No settings command connects to the game site.
+
+Use `node configure.mjs --update --name "小刻"` to save a player name (up to 12
+characters). An empty name restores Ark Agent. Names do not affect LLM controller
+declarations. Hosts apply changed settings at the next safe game boundary.

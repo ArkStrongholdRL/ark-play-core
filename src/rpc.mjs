@@ -11,7 +11,7 @@ const PUBLIC_KEYS=['phase','round','lastRound','modeId','difficulty','stageId','
 export class GameClient {
   constructor(config={}) {
     this.config=resolveConfig(config);config=this.config;
-    this.url=config.url||null;this.name=String(config.name||'Ark Agent').trim().slice(0,12)||'Ark Agent';
+    this.url=config.url||null;this.name=config.name;
     if(this.url) {
       const u=new URL(this.url);
       if(u.username||u.password||u.search||u.hash||u.pathname!=='/ws')throw new Error('Use the game site /ws URL without credentials/query/hash');

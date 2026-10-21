@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {execFileSync,spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {resolveConfig,normalizeSiteUrl,normalizeRoomCode} from '../src/config.mjs';
+import {resolveConfig,normalizeSiteUrl,normalizeRoomCode,normalizePlayerName} from '../src/config.mjs';
 import {createTools} from '../src/tools.mjs';
 const cli=fileURLToPath(new URL('../tools/configure.mjs',import.meta.url));
 
@@ -13,6 +13,7 @@ test('default site and file/environment/host settings resolve in order',async()=
  const folder=await mkdtemp(join(tmpdir(),'ark-settings-')),file=join(folder,'client.json');
  try {
   assert.equal(resolveConfig({configFile:file},{}).url,'wss://ark.minyako.top/ws');
+  assert.equal(resolveConfig({configFile:file},{}).name,'Ark Agent');
   await writeFile(file,JSON.stringify({url:'https://file.example',roomCode:'ab12',name:'Doctor'}));
   assert.equal(resolveConfig({configFile:file},{}).roomCode,'AB12');
   const env={ARK_AGENT_URL:'https://env.example',ARK_AGENT_ROOM_CODE:'cd34'};
@@ -20,6 +21,10 @@ test('default site and file/environment/host settings resolve in order',async()=
   assert.equal(resolveConfig({configFile:file},env).roomCode,'CD34');
   const host=resolveConfig({configFile:file,url:'https://host.example',roomCode:''},env);
   assert.equal(host.url,'wss://host.example/ws');assert.equal(host.roomCode,'');assert.equal(host.name,'Doctor');
+  assert.equal(resolveConfig({configFile:file},{ARK_AGENT_NAME:'  小刻  '}).name,'小刻');
+  assert.equal(resolveConfig({configFile:file,name:'Codex'},{ARK_AGENT_NAME:'小刻'}).name,'Codex');
+  assert.equal(normalizePlayerName('  '),'Ark Agent');
+  assert.throws(()=>normalizePlayerName('1234567890123'),/12/);
   for(const invalid of ['http://remote.example','https://name:pass@host.example','https://host.example?secret=1','https://host.example/path'])assert.throws(()=>normalizeSiteUrl(invalid));
   assert.equal(normalizeSiteUrl('http://localhost:4000'),'ws://localhost:4000/ws');
   assert.equal(normalizeRoomCode(' ab12 '),'AB12');assert.throws(()=>normalizeRoomCode('ABC'));
@@ -53,9 +58,18 @@ test('CLI saves normalized settings, refuses overwrite, and explicitly updates w
   const saved=JSON.parse(await readFile(file,'utf8'));
   assert.equal(saved.token,'private-test-token');assert.equal(saved.name,'Doctor');assert.equal(saved.url,'wss://keep.example/ws');assert.equal(saved.roomCode,'');
   assert.ok(!output.includes(saved.token));
+  execFileSync(process.execPath,[cli,'--out',file,'--update','--name','  小刻  ']);
+  const renamed=JSON.parse(await readFile(file,'utf8'));
+  assert.equal(renamed.name,'小刻');assert.equal(renamed.token,saved.token);assert.equal(renamed.url,saved.url);assert.equal(renamed.roomCode,saved.roomCode);
+  const client=createTools({configFile:file});
+  try {assert.equal(client.client.name,'小刻');}finally{await client.close();}
   const before=await readFile(file,'utf8');
+  assert.notEqual(spawnSync(process.execPath,[cli,'--out',file,'--update','--name','1234567890123']).status,0);
+  assert.equal(await readFile(file,'utf8'),before);
   assert.notEqual(spawnSync(process.execPath,[cli,'--out',file,'--update','--room-code','bad!']).status,0);
   assert.equal(await readFile(file,'utf8'),before);
   assert.notEqual(spawnSync(process.execPath,[cli,'--out']).status,0);
+  execFileSync(process.execPath,[cli,'--out',file,'--update','--name','']);
+  assert.equal(JSON.parse(await readFile(file,'utf8')).name,'Ark Agent');
  }finally{await rm(folder,{recursive:true,force:true});}
 });

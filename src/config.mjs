@@ -3,6 +3,11 @@ import {existsSync,readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {homedir} from 'node:os';
 export const DEFAULT_SITE_URL='https://ark.minyako.top';
+export function normalizePlayerName(value) {
+  const name=String(value??'').trim();
+  if(name.length>12)throw new Error('玩家名最多 12 个字符');
+  return name||'Ark Agent';
+}
 export function normalizeSiteUrl(value) {
   const input=String(value??'').trim();
   if(!input)return '';
@@ -29,11 +34,12 @@ export function readConfig(file) {
 }
 export function resolveConfig(config={},environment=process.env) {
   const defaults=readConfig(configPath(config,environment));
-  const env=Object.fromEntries(Object.entries({url:environment.ARK_AGENT_URL,roomCode:environment.ARK_AGENT_ROOM_CODE,
+  const env=Object.fromEntries(Object.entries({url:environment.ARK_AGENT_URL,roomCode:environment.ARK_AGENT_ROOM_CODE,name:environment.ARK_AGENT_NAME,
     tokenFile:environment.ARK_AGENT_TOKEN_FILE,headersFile:environment.ARK_AGENT_HEADERS_FILE,
     sessionFile:environment.ARK_AGENT_SESSION_FILE}).filter(([,value])=>value!==undefined));
   const resolved={...defaults,...env,...config};
   resolved.url=normalizeSiteUrl(resolved.url||DEFAULT_SITE_URL);
   resolved.roomCode=normalizeRoomCode(resolved.roomCode);
+  resolved.name=normalizePlayerName(resolved.name);
   return resolved;
 }
