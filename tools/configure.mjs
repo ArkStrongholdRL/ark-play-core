@@ -35,5 +35,5 @@ if(args.includes('--help')) {
     try {writeFileSync(temporary,content,{mode:0o600,flag:'wx'});renameSync(temporary,target);}
     finally {rmSync(temporary,{force:true});}
   } else writeFileSync(target,content,{mode:0o600,flag:'wx'});
-  console.log((update?'Updated ':'Created ')+target+'; no credentials printed. Settings apply to the next MCP session.');
+  console.log((update?'Updated ':'Created ')+target+'; no credentials printed. Settings apply to the next game session.');
 }
