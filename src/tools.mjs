@@ -18,7 +18,7 @@ const action=z.discriminatedUnion('type',[
   z.object({type:z.literal('ready'),ready:z.literal(true).optional()}),
 ]);
 
-export const INSTRUCTIONS='Play only on user request. ark_start joins the configured game site over its native /ws protocol and starts solo play, or joins a specified room and readies up for its host. Read the compact view and submit explicit actions with the latest local snapshot revision and a short purpose. The revision is a client precondition, not a server atomic lock. The server can reject stale choices or illegal targets. Batches stop on rejection or phase/round changes and never continue into another round. After ready, the plugin computes and reports combat internally and returns the next player decision or terminal result; no wait tool or polling is needed. ark_view also completes pending settlement when recovering an uncertain action. Cancellation or disconnection does not undo accepted actions; recover with ark_view before issuing another action. Native battle simulation is isolated from model observations. The site owns authentication, pacing, recording and persistence. This plugin never collects or downloads trajectories.';
+export const INSTRUCTIONS='Play only on user request. ark_start joins the configured game site over its native /ws protocol and starts solo play, or joins a specified room and readies up for its host. Gameplay calls stay pending while waiting for the host, teammates, another player turn, combat or site resume; WS events wake the same call only when a player decision, terminal result or error is available. Do not poll, sleep then repeatedly call ark_view, or repeat ark_start while waiting. Read the compact view and submit explicit actions with the latest local snapshot revision and a short purpose. The revision is a client precondition, not a server atomic lock. The server can reject stale choices or illegal targets. Batches stop on rejection or phase/round changes and never continue into another round. After ready, the plugin computes and reports combat internally and returns the next player decision or terminal result. ark_view also waits for a decision when recovering an uncertain action. Cancellation or disconnection does not undo accepted actions; recover once with ark_view before issuing another action. A closed room ends the wait and must not be automatically rejoined. Native battle simulation is isolated from model observations. The site owns authentication, pacing, recording and persistence. This plugin never collects or downloads trajectories.';
 
 export function createTools(config={}) {
   const client=new GameClient(config);let previous=null;
@@ -28,12 +28,12 @@ export function createTools(config={}) {
     return {text};
   };
   const tools=[
-    {name:'ark_start',description:'开单人局，或按 roomCode 加入已有房间并准备，等待房主开始。房间号留空开单人局；加入时难度由房间决定。',
+    {name:'ark_start',description:'开单人局，或按 roomCode 加入已有房间并准备。等待房主开始、队友及自己的决策时机时，本次调用保持挂起，由 WS 事件唤醒后返回；不要轮询或重复开局。房间号留空开单人局；加入时难度由房间决定。',
       schema:z.object({difficulty:z.enum(['ABYSS','NORMAL','HARD']).default('ABYSS'),roomCode:z.string().trim().toUpperCase().regex(/^(?:[A-Z0-9]{4})?$/).optional().describe('四位房间号；省略使用客户端配置，空字符串开单人局')}),
       execute:async(args,signal)=>show(await client.call({op:'start',difficulty:args.difficulty,roomCode:args.roomCode??client.config.roomCode},signal),true)},
-    {name:'ark_view',description:'恢复完整紧凑局面；若正在结算，插件内部处理至下一决策或终局再返回。用于上下文丢失、断线重连或动作结果不确定。',
+    {name:'ark_view',description:'恢复完整紧凑局面。联机等待、别人回合、战斗或暂停期间，本次调用保持挂起，监听 WS 直到自己的下一决策、终局或错误；无需反复调用。用于上下文丢失、断线重连或动作结果不确定。',
       schema:z.object({}),readOnly:true,execute:async(_,signal)=>show(await client.call({op:'view'},signal),true)},
-    {name:'ark_act',description:'按当前本地快照revision执行1至8步明确动作。拒绝或阶段/回合改变即停止本批；ready后自动完成战斗计算、上报和结算，返回下一决策局面或终局，不需轮询。站点暂停时返回暂停提示。',
+    {name:'ark_act',description:'按当前本地快照revision执行1至8步明确动作。拒绝或阶段/回合改变即停止本批；需要等队友、别人回合、战斗结算或暂停恢复时，由 WS 事件驱动保持挂起，直到自己的下一决策、终局或错误才返回；不要轮询。ready 后自动处理战斗计算、上报与结算。',
       schema:z.object({revision:index,steps:z.array(z.object({action,reason:z.string().min(1).max(400)})).min(1).max(8)}),
       execute:async(args,signal)=>show(await client.call({op:'act',...args},signal))},
     {name:'ark_lookup',description:'按ID或名称查询公开卡牌、装备、盟约、策略说明；不会读取隐藏池或未来商店。',

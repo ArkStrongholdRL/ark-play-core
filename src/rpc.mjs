@@ -26,18 +26,20 @@ export class GameClient {
     this.pending=new Map();this.rid=0;this.revision=0;this.ws=null;this.connecting=null;this.site=null;
     this.pub=null;this.own=null;this.room=null;this.result=null;this.lastPush=0;this.uncertain=false;
     this.sendTail=Promise.resolve();this.nextSend=0;this.combatQueue=[];this.authorities=new Set();
-    this.stateWaiters=new Set();
+    this.stateWaiters=new Set();this.stateVersion=0;this.roomClosed=null;
   }
-  wake() {for(const notify of [...this.stateWaiters])notify();}
+  wake() {this.stateVersion++;for(const notify of [...this.stateWaiters])notify();}
   fail(message) {this.siteError=String(message);this.wake();}
-  changed(signal) {
+  changed(signal,since=this.stateVersion,timeout) {
     signal?.throwIfAborted();
     return new Promise((resolve,reject)=>{
-      const cleanup=()=>{this.stateWaiters.delete(notify);signal?.removeEventListener('abort',abort);};
+      let timer;
+      const cleanup=()=>{clearTimeout(timer);this.stateWaiters.delete(notify);signal?.removeEventListener('abort',abort);};
       const notify=()=>{cleanup();resolve();};
       const abort=()=>{cleanup();reject(signal.reason);};
       this.stateWaiters.add(notify);signal?.addEventListener('abort',abort,{once:true});
-      if(signal?.aborted)abort();
+      if(timeout!==undefined)timer=setTimeout(notify,timeout);
+      if(signal?.aborted)abort();else if(since!==this.stateVersion)notify();
     });
   }
   update(key,value) {
@@ -50,8 +52,8 @@ export class GameClient {
       if(m.version!==1){this.siteError='Unsupported server protocol';this.ws.close();return;}
       if(this.sessionToken&&!m.resumed){this.sessionLost=true;this.pub=null;this.own=null;this.room=null;this.result=null;}
       this.sessionToken=m.token;this.myId=m.playerId;this.welcome=m;
-    }else if(m.t==='room.state')this.update('room',m);
-    else if(m.t==='room.closed')this.update('room',null);
+    }else if(m.t==='room.state'){this.roomClosed=null;this.update('room',m);}
+    else if(m.t==='room.closed'){this.roomClosed=String(m.reason||'closed').slice(0,80);this.update('room',null);}
     else if(m.t==='m.public') {
       this.update('pub',Object.fromEntries(PUBLIC_KEYS.filter(k=>k in m).map(k=>[k,m[k]])));
       this.site?.send('pause',{on:!!m.paused});
@@ -125,7 +127,16 @@ export class GameClient {
     this.request(message).catch(e=>this.fail('Site did not accept combat report: '+e.message));
   }
   // A native ack is not a state frame: coalesce the public/private push burst.
-  async quiet() {const end=Date.now()+500;do{await pause(30);}while(Date.now()<end&&Date.now()-this.lastPush<60);}
+  async quiet(signal) {
+    const start=Date.now(),end=start+500;
+    for(;;) {
+      signal?.throwIfAborted();
+      const version=this.stateVersion,now=Date.now();
+      const remaining=Math.min(end-now,Math.max(start,this.lastPush)+60-now);
+      if(remaining<=0)return;
+      await this.changed(signal,version,remaining);
+    }
+  }
   async view() {
     await this.quiet();
     if(!this.pub||!this.own)return {status:'lobby',roomCode:this.room?.code||null,protocol:this.site?.ready?.protocol,application:this.site?.ready?.app};
@@ -133,20 +144,23 @@ export class GameClient {
     const map=await this.site.request('map',{pub:snapshot.pub,own:snapshot.own,myId:this.myId});
     return {...projectNative({...snapshot,myId:this.myId,runtime:this.site,map}),...(this.siteError?{notice:this.siteError}:{})};
   }
-  async settle(signal,readyRound) {
-    await this.quiet();
+  async settle(signal,readyRound,waitForStart=false) {
+    await this.quiet(signal);
     for(;;) {
       signal?.throwIfAborted();
+      if(this.result)return;
+      if(this.roomClosed)throw new Error('Room closed: '+this.roomClosed+'; waiting stopped. Do not poll or automatically rejoin');
       if(this.siteError)throw new Error(this.siteError+'; recover with ark_view, do not repeat accepted actions');
       if(!this.ws||this.ws.readyState!==WebSocket.OPEN)throw new Error('Connection lost during settlement; recover with ark_view, do not repeat accepted actions');
       // A ready acknowledgement may precede its state push. Never return the
       // old prep snapshot as if it were a new opportunity to buy or ready.
       const oldPrep=readyRound!==undefined&&this.pub?.round===readyRound&&
         this.pub?.phase==='PREP'&&!this.own?.personalChoice;
-      if(this.result||this.pub?.paused||
-        (!this.room?.inMatch&&!this.pub)||(!oldPrep&&canAct(this.pub,this.own,this.myId,this.result)))return;
+      // A lobby, another player's turn, a paused site and combat are all waits,
+      // not model decisions. Keep this one call pending until a WS push matters.
+      if((!waitForStart&&!this.room&&!this.pub)||(!oldPrep&&canAct(this.pub,this.own,this.myId,this.result)))return;
       await this.changed(signal);
-      await this.quiet();
+      await this.quiet(signal);
     }
   }
   normalize(action) {
@@ -176,7 +190,7 @@ export class GameClient {
       if(payload.op==='view'){await this.settle(signal);const result=await this.view();this.uncertain=false;return result;}
       if(payload.op==='start') {
         if(this.room?.inMatch)throw new Error('A site game is already running; use ark_view or explicitly finish');
-        this.result=null;this.pub=null;this.own=null;this.combatQueue=[];this.authorities.clear();this.revision++;
+        this.result=null;this.pub=null;this.own=null;this.roomClosed=null;this.combatQueue=[];this.authorities.clear();this.revision++;
         const code=String(payload.roomCode||'').trim().toUpperCase();
         if(code) {
           if(!/^[A-Z0-9]{4}$/.test(code))throw new Error('Expected a four-character room code');
@@ -187,7 +201,7 @@ export class GameClient {
           await this.request({t:'room.create',mode:'solo',difficulty:payload.difficulty||'ABYSS'});
           await this.request({t:'room.start'});
         }
-        await this.settle(signal);return await this.view();
+        await this.settle(signal,undefined,true);return await this.view();
       }
       if(payload.op==='lookup') {
         const {kind,id,text='',limit=3}=payload.query,table=this.site.raw[kind];

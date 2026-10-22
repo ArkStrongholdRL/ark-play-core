@@ -39,7 +39,7 @@ export function render(reply, previous=null, force=false) {
   }
   if (v.setup) lines.push(`开局: ${short(v.setup)}`);
   if (reply.notice) lines.push(`站点/客户端状态: ${reply.notice}`);
-  if (v.paused) lines.push('游戏站已暂停：请在站点恢复后调用 ark_view；当前工具不会结束准备或跳过暂停。');
+  if (v.paused) lines.push('游戏站已暂停：调用一次 ark_view 会等待恢复及下一决策；不要反复轮询。');
   if (v.me.handEmpty.length===0) lines.push('手牌已满：先装备/出售/处理库存才能购买或领取需空位的奖励。');
   if (v.terminal) lines.push(`结算: ${short(v.outcome)}`);
   lines.push(`可调用: ${v.available.join(', ')}。动作有目标约束，仍可能被引擎拒绝。`);

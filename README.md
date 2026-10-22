@@ -57,3 +57,17 @@ Use `node configure.mjs --update --name "小刻"` to save a player name (up to 1
 characters). An empty name restores the host default: 蓝色大肥鱼 for DSH and
 笨蛋大肥龙 for Codex (Ark Agent for other clients). Names do not affect LLM controller
 declarations. Hosts apply changed settings at the next safe game boundary.
+
+## Event-driven multiplayer waits
+
+ark_start stays pending after joining/readying until the host starts and this
+player can make a decision. ark_act and ark_view likewise wait for teammates,
+other draft turns, combat and pause/resume. Idle waiting sends no state queries
+and returns no periodic model results. WS pushes trigger a cancellable state
+wait; a short event debounce only combines public/private message bursts.
+Results, room closure, disconnection, cancellation and runtime failure end the
+wait. Cancellation does not undo accepted actions: recover once with ark_view.
+
+Host tool deadlines still apply. DSH does not declare a per-tool deadline. Codex
+can send requested MCP progress notifications, but these cannot override an
+absolute client deadline. Use a longer host tool timeout for extended waits.
