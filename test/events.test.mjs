@@ -69,6 +69,31 @@ test('ready waits for humans, combat and resume, stops the batch, and returns th
   } finally {await f.close();await action?.promise.catch(()=>{});}
 });
 
+test('own simulation/result and all-field progress never resume the model before the server advances the round',async()=>{
+  const f=await fixture();let action;
+  try {
+    await f.client.connect();f.push({...f.room,inMatch:true});f.pub('PREP');f.own();await f.client.quiet();
+    action=track(f.client.call({op:'act',revision:f.client.revision,steps:[{action:{type:'ready'},reason:'开始战斗，等待全体结算'}]}));
+    await until(()=>f.received.some(m=>m.t==='g.ready'));f.own({ready:true});f.pub('COMBAT');
+    f.push({t:'b.start',battleId:'own-battle',authoritative:true,done:false});
+    await until(()=>f.client.authorities.has('own-battle'));
+    // Stand in for the worker's completed local simulation and native report.
+    f.client.report({t:'b.result',battleId:'own-battle',cs,result:{}});
+    await until(()=>f.received.some(m=>m.t==='b.result'));
+    f.push({t:'b.end',battleId:'own-battle'});
+    f.pub('COMBAT',{players:[{playerId:'me',ready:false,status:'done'},{playerId:'human',status:'simulating'}]});f.own();
+    await delay(100);assert.equal(action.settled,false,'own simulation finishing is not the global barrier');
+    f.pub('COMBAT',{players:[{playerId:'me',status:'done'},{playerId:'human',status:'done'}]});
+    await delay(100);assert.equal(action.settled,false,'even all-field completion is not yet a player decision');
+    f.pub('UNITE');await delay(100);assert.equal(action.settled,false);
+    f.pub('SETTLE');await delay(100);assert.equal(action.settled,false);
+    assert.deepEqual(f.received.map(m=>m.t),['hello','g.ready','b.result']);
+    f.pub('PREP',{round:1});f.own();
+    const result=await action.promise;assert.equal(result.phase,'PREP');assert.equal(result.round,1);
+    assert.equal(f.client.stateWaiters.size,0);
+  } finally {await f.close();await action?.promise.catch(()=>{});}
+});
+
 test('view waits for site resume and terminal results, and room closure releases the call',async()=>{
   const f=await fixture();let pending;
   try {
