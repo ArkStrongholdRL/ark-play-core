@@ -2,7 +2,7 @@
 
 Shared native `/ws` gameplay client for the DSH and Codex Ark Stronghold plugins.
 
-Owns the five gameplay tools, compact observations, action batches, recovery,
+Owns the six gameplay tools, compact observations, action batches, recovery,
 room joining, LLM controller declarations, site content verification and battle
 Worker, plus source/notice/package helpers. Host adapters, MCP SDK, UI artwork
 and game engine snapshots are not included. The configured game site supplies
@@ -71,3 +71,24 @@ wait. Cancellation does not undo accepted actions: recover once with ark_view.
 Host tool deadlines still apply. DSH does not declare a per-tool deadline. Codex
 can send requested MCP progress notifications, but these cannot override an
 absolute client deadline. Use a longer host tool timeout for extended waits.
+
+## Completed combat metrics
+
+`ark_combat({scope: 'last' | 'match'})` reads in-memory native unit counters.
+`last` includes normal and unite fields of the latest settled round; `match`
+includes retained settled rounds. Each player and operator has damage, damage
+taken, effective healing and shares (fractions 0–1); summons are credited to
+their owning operator. Player DPS/HPS uses simulated field seconds. A zero
+denominator gives a zero share. Healing excludes overheal and restore-mode
+HP restoration; damage taken includes self/friendly HP loss.
+
+Only fields locally simulated for this player are covered, including paired
+allies present there. This is not a server-wide ranking. Reconstructed,
+interrupted, taken-over or failed simulations are marked incomplete; missing
+fields are unavailable, not zero. Reads cannot connect, advance the game or
+expose active-round counters. History keeps at most 64 battles and returns
+at most 256 unit rows per player, with omitted-row counts and full totals.
+A new start clears history; finish disposes it. No frame/event recording.
+
+After each settled round, call this tool once before taking the next decision
+(or finishing the terminal review). Do not poll pending/unavailable statistics.

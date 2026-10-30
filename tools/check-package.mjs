@@ -13,14 +13,14 @@ for(const folder of ['src','tools'])for(const name of await readdir(join(root,fo
 const api=await import(pathToFileURL(join(root,'src/tools.mjs')));
 if(typeof api.createTools!=='function'||!api.z)throw new Error('Invalid shared API');
 const runtime=api.createTools();
-if(runtime.tools.length!==5)throw new Error('Expected five shared tools');
+if(runtime.tools.length!==6)throw new Error('Expected six shared tools');
 await runtime.close();
 if(process.argv.includes('--pack')) {
   const destination=join(root,'results/npm');await mkdir(destination,{recursive:true});
   const [report]=JSON.parse(execFileSync('npm',['pack','--ignore-scripts','--json','--pack-destination',destination],{cwd:root,encoding:'utf8'}));
   const archive=join(destination,report.filename);
   const names=execFileSync('tar',['-tzf',archive],{encoding:'utf8'}).trim().split('\n');
-  for(const name of ['src/tools.mjs','src/rpc.mjs','src/site-worker.mjs','src/site-loader.mjs','tools/package.mjs','tools/configure.mjs','PROVENANCE.md','LICENSE'])if(!names.includes('package/'+name))throw new Error('Archive omitted '+name);
+  for(const name of ['src/combat.mjs','src/tools.mjs','src/rpc.mjs','src/site-worker.mjs','src/site-loader.mjs','tools/package.mjs','tools/configure.mjs','PROVENANCE.md','LICENSE'])if(!names.includes('package/'+name))throw new Error('Archive omitted '+name);
   if(names.some(name=>/\/(node_modules|dist|public|results)\//.test(name)||name.endsWith('/src/mcp.mjs')))throw new Error('Host-only or generated files in core');
   const scratch=await mkdtemp(join(tmpdir(),'ark-core-audit-'));
   try {

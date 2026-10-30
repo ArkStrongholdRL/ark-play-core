@@ -11,7 +11,7 @@ export async function readSite(url,headers,maxBytes=16*1024*1024) {
 }
 export class SiteRuntime {
   constructor(origin,headers,onReport,onFailure) {this.origin=origin;this.headers=headers;this.onReport=onReport;this.onFailure=onFailure;this.pending=new Map();this.counter=0;}
-  async load(cs) {
+  async load(cs,playerId) {
     if(!/^[a-f0-9]{64}$/.test(cs))throw new Error('Site did not publish a supported content identity');
     const index=JSON.parse(await readSite(this.origin+'/cs/'+cs.slice(0,16)+'/index.json',this.headers,1024*1024));
     if(index.cs!==cs||index.v!==1||index.vanilla!==true||!index.simFiles||!index.data||index.plugins?.length)throw new Error('Only the site vanilla content protocol v1 is supported');
@@ -25,7 +25,7 @@ export class SiteRuntime {
       return [key,JSON.parse(bytes)];
     })));
     this.raw=raw;this.index=index;
-    const worker=new Worker(new URL('./site-worker.mjs',import.meta.url),{workerData:{origin:this.origin,headers:this.headers,index,raw}});this.worker=worker;
+    const worker=new Worker(new URL('./site-worker.mjs',import.meta.url),{workerData:{origin:this.origin,headers:this.headers,index,raw,playerId}});this.worker=worker;
     this.ready=await new Promise((resolve,reject)=>{
       const timeout=setTimeout(()=>reject(new Error('Upstream client loading timed out')),60_000);
       worker.on('error',e=>{clearTimeout(timeout);reject(e);this.fail(e.message);});

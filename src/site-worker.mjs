@@ -1,8 +1,9 @@
 // Execute the site's actual deterministic simulation in an isolated worker.
 // Battle specs/RNG never leave this worker for model observations.
 import {register} from 'node:module';
+import {CombatHistory} from './combat.mjs';
 import {parentPort,workerData} from 'node:worker_threads';
-const {origin,headers,index,raw}=workerData;
+const {origin,headers,index,raw,playerId}=workerData;
 const hashes={...index.simFiles};
 const traits=Object.values(raw.garrisons||{}).filter(g=>g.operatorTrait).map(g=>g.operatorTrait.runtime);
 if(traits.length) {
@@ -20,12 +21,13 @@ if(constants.PROTOCOL_VERSION!==1||!['0.3.0','0.3.1','0.3.2','0.3.3'].includes(c
 function freeze(value) {if(value&&typeof value==='object'&&!Object.isFrozen(value)){Object.freeze(value);for(const v of Object.values(value))freeze(v);}return value;}
 freeze(raw);simdata.setSimData(raw);support.setGameData(null);bounds.rememberOfficialBounds(raw);
 if(traits.length)await (await import(origin+'/js/battle/operatorTraits.js')).installOperatorTraits(raw,origin+'/sim/');
-const ds=new simdata.DataSource(raw,null),battles=new Map();let paused=false;
+const ds=new simdata.DataSource(raw,null),battles=new Map(),combat=new CombatHistory();let paused=false;
 const post=(type,payload={})=>parentPort.postMessage({type,...payload});
 function report(entry,final=false,resend=false) {
   if(!entry.authoritative||entry.ended)return;
   post('report',{battleId:entry.id,message:{t:'b.progress',battleId:entry.id,...spec.battleProgress(entry.battle)}});
   if(final&&(!entry.reported||resend)) {
+    combat.record(entry);
     entry.reported=true;
     let result=spec.compactResult(entry.battle.result());
     if(spec.fitResult)result=spec.fitResult(result,{bossLike:['boss','hidden'].includes(entry.kind),battleId:entry.id});
@@ -47,6 +49,9 @@ function pump(entry) {
 }
 parentPort.on('message',async q=>{
   try {
+    if(q.op==='combat')return post('reply',{id:q.id,result:combat.read({...q.query,playerId})});
+    if(q.op==='interrupt'){for(const e of battles.values())e.interrupted=true;return;}
+    if(q.op==='resetCombat'){combat.clear();for(const e of battles.values()){e.ended=true;clearTimeout(e.timer);}battles.clear();return;}
     if(q.op==='validate')return post('reply',{id:q.id,result:protocol.validateC2S(q.message)||null});
     if(q.op==='map') {
       const field=camera.deployFieldOf(q.pub,q.myId),stage=raw.stages[q.pub.stageId];
@@ -69,19 +74,23 @@ parentPort.on('message',async q=>{
       return;
     }
     if(q.op==='end') {
-      const e=battles.get(q.message.battleId);if(e){e.ended=true;clearTimeout(e.timer);battles.delete(e.id);}return;
+      const e=battles.get(q.message.battleId);if(e){combat.record(e,q.message.reason||'server_end');e.ended=true;clearTimeout(e.timer);battles.delete(e.id);}return;
     }
     if(q.op==='start') {
       const m=q.message;
-      if(!m.authoritative||m.watch||m.done)return;
+      if(m.watch||!m.spec?.players?.some(p=>p.playerId===playerId))return;
+      if(!m.authoritative||m.done){
+        if(!combat.records.has(m.battleId))combat.record({id:m.battleId,fieldId:m.fieldId,kind:m.kind,round:m.spec.round},'not_locally_simulated');
+        return;
+      }
       if(m.spec?.cs!==index.cs)throw new Error('Battle content differs from loaded site content');
       const old=battles.get(m.battleId);
       if(old){if(old.reported)report(old,true,true);return;}
-      for(const e of battles.values()){e.ended=true;clearTimeout(e.timer);}battles.clear();
+      for(const e of battles.values()){if(!e.battle.finished)combat.record(e,'replaced_before_finish');e.ended=true;clearTimeout(e.timer);}battles.clear();
       const battle=spec.createBattleFromSpec(m.spec,ds,{recordEvents:false,logger:{warn(){},error(){},info(){}}});
       spec.attachLpMeter(battle);
-      const e={id:m.battleId,fieldId:m.fieldId,kind:m.kind,battle,authoritative:true,ended:false,reported:false,
-        started:Date.now(),elapsed:m.elapsed||0,speed:m.speed||2,lastReport:Date.now()};
+      const e={id:m.battleId,fieldId:m.fieldId,kind:m.kind,round:m.spec.round,battle,authoritative:true,ended:false,reported:false,
+        reconstructed:(m.elapsed||0)>0,started:Date.now(),elapsed:m.elapsed||0,speed:m.speed||2,lastReport:Date.now()};
       battles.set(e.id,e);pump(e);return;
     }
   }catch(error) {

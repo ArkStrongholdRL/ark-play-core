@@ -86,6 +86,7 @@ export class GameClient {
       ws.on('error',()=>{});
       ws.on('message',bytes=>{try{this.receive(JSON.parse(bytes.toString()));}catch{this.fail('Unsupported server message');ws.close();}});
       ws.on('close',code=>{
+        this.site?.send('interrupt');
         if(this.ws===ws){this.ws=null;this.welcome=null;}
         if(code===4001)this.replaced=true;
         for(const p of this.pending.values()){clearTimeout(p.timer);p.reject(new Error('Connection lost; use ark_view before another action'));}
@@ -102,7 +103,7 @@ export class GameClient {
       if(!this.site||this.site.index?.cs!==cs) {
         if(this.site)await this.site.close();this.siteError=null;
         const site=new SiteRuntime(this.origin,this.headers,m=>this.report(m),e=>this.fail(e));this.site=site;
-        try{await site.load(cs);}catch(e){await site.close();this.site=null;ws.close();this.ws=null;this.welcome=null;throw e;}
+        try{await site.load(cs,this.myId);}catch(e){await site.close();this.site=null;ws.close();this.ws=null;this.welcome=null;throw e;}
         for(const q of this.combatQueue.splice(0))site.send(q.op,{message:q.message});
         site.send('pause',{on:!!this.pub?.paused});
       }
@@ -180,6 +181,15 @@ export class GameClient {
       }
       if(this.replaced)throw new Error('Site session replaced; automatic reconnect is disabled. Use ark_finish to detach locally');
       if(this.sessionLost&&payload.op==='finish'){this.sessionLost=false;this.sessionToken=null;await this.close();return {status:'expired-session-acknowledged'};}
+      if(payload.op==='combat') {
+        if(this.sessionLost||!this.site?.ready||!this.pub)return {status:'unavailable',reason:'no_local_match_runtime'};
+        if(this.siteError)return {status:'unavailable',reason:'local_runtime_failed'};
+        const fighting=['COMBAT','UNITE','FINAL_ASSAULT','HIDDEN_CORE','SETTLE'].includes(this.pub.phase);
+        if(!this.result&&(fighting||this.pub.paused))return {status:'pending',reason:'round_not_settled',doNotPoll:true};
+        const throughRound=Math.max(0,(this.pub.round||0)-(this.result?0:1));
+        if(!throughRound)return {status:'unavailable',reason:'no_completed_round'};
+        return await this.site.request('combat',{query:{scope:payload.scope,throughRound}});
+      }
       await this.connect(payload.op!=='finish');
       if(this.uncertain&&!['view','finish'].includes(payload.op))throw new Error('Use ark_view to resync the uncertain action outcome');
       if(payload.op==='finish') {
@@ -191,6 +201,7 @@ export class GameClient {
       if(payload.op==='view'){await this.settle(signal);const result=await this.view();this.uncertain=false;return result;}
       if(payload.op==='start') {
         if(this.room?.inMatch)throw new Error('A site game is already running; use ark_view or explicitly finish');
+        this.site?.send('resetCombat');
         this.result=null;this.pub=null;this.own=null;this.roomClosed=null;this.combatQueue=[];this.authorities.clear();this.revision++;
         const code=String(payload.roomCode||'').trim().toUpperCase();
         if(code) {
