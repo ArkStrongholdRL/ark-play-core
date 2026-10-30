@@ -252,7 +252,7 @@ export class GameClient {
       }
       await this.settle(signal,readyRound);
       return {...await this.view(),executed,...(!executed.length?{notice:'当前没有可提交的玩家决策；本批未执行，请依据新局面重新选择。'}:{})};
-    }catch(e){if(signal?.aborted)this.uncertain=true;throw e;}
+    }catch(e){if(signal?.aborted&&payload.op!=='combat')this.uncertain=true;throw e;}
     finally{this.inCall=false;}
   }
   async close() {

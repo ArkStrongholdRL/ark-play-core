@@ -67,5 +67,8 @@ test('combat tool reads only locally after settlement, does not connect, mutate 
     assert.deepEqual(queries.pop(),['combat',{query:{scope:'last',throughRound:1}}]);assert.equal(c.revision,revision);assert.equal(c.uncertain,true);
     c.result={victory:false};c.pub={phase:'COMBAT',round:2};await run();assert.equal(queries.pop()[1].query.throughRound,2);
     assert.equal(tool.schema.safeParse({scope:'live'}).success,false);
+    c.uncertain=false;const controller=new AbortController();
+    c.site.request=async()=>{controller.abort(new Error('cancel read'));throw controller.signal.reason;};
+    await assert.rejects(tool.execute(tool.schema.parse({}),controller.signal),/cancel read/);assert.equal(c.uncertain,false,'canceling a statistics read cannot make gameplay actions uncertain');
   }finally{await runtime.close();}
 });
