@@ -197,7 +197,7 @@ export class GameClient {
           if(!/^[A-Z0-9]{4}$/.test(code))throw new Error('Expected a four-character room code');
           await this.request({t:'room.join',code});
           if(this.room?.content?.vanilla===false)throw new Error('Gameplay plugin content sets are not supported by this client version');
-      if(this.room?.version)throw new Error('Historical-version rooms are not supported by this client; use the default version');
+          if(this.room?.version)throw new Error('Historical-version rooms are not supported by this client; use the default version');
           await this.request({t:'room.ready',ready:true});
         } else {
           await this.request({t:'room.create',mode:'solo',difficulty:payload.difficulty||'ABYSS'});
