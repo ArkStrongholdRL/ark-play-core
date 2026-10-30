@@ -20,7 +20,7 @@ await runtime.close();
 ```
 
 Hosts bundle src/site-worker.mjs and src/site-loader.mjs into the same output
-folder. Supported sites currently use app 0.3.0 / 0.3.1 and vanilla protocol v1.
+folder. Supported sites currently use app 0.3.0 through 0.3.3 and vanilla protocol v1 (the default official game version only). Historical-version rooms fail explicitly before loading their data.
 
 ## Validate
 

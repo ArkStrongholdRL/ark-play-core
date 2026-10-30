@@ -15,6 +15,7 @@ export class SiteRuntime {
     if(!/^[a-f0-9]{64}$/.test(cs))throw new Error('Site did not publish a supported content identity');
     const index=JSON.parse(await readSite(this.origin+'/cs/'+cs.slice(0,16)+'/index.json',this.headers,1024*1024));
     if(index.cs!==cs||index.v!==1||index.vanilla!==true||!index.simFiles||!index.data||index.plugins?.length)throw new Error('Only the site vanilla content protocol v1 is supported');
+    if(index.version)throw new Error('Historical-version rooms are not supported by this client; use the default version');
     const raw=Object.fromEntries(await Promise.all(FILES.map(async key=>{
       const ref=index.data[key];if(!ref)throw new Error('Site data missing: '+key);
       const url=new URL(ref.url,this.origin);

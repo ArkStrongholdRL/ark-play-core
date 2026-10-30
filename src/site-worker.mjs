@@ -16,7 +16,7 @@ const [identity,protocol,constants,simdata,spec,support,bounds,placement,camera]
 ].map(path=>import(origin+'/'+path)));
 if(identity.simHashOf(index.simFiles)!==index.sim||identity.contentHashOf({app:index.app,sim:index.sim,
   data:Object.fromEntries(Object.entries(index.data).map(([k,v])=>[k,v.sha256])),plugins:index.plugins,settings:index.settings})!==index.cs)throw new Error('Upstream content identity mismatch');
-if(constants.PROTOCOL_VERSION!==1||!['0.3.0','0.3.1'].includes(constants.APP_VERSION)||constants.APP_VERSION!==index.app)throw new Error('Unsupported upstream protocol/application version');
+if(constants.PROTOCOL_VERSION!==1||!['0.3.0','0.3.1','0.3.2','0.3.3'].includes(constants.APP_VERSION)||constants.APP_VERSION!==index.app)throw new Error('Unsupported upstream protocol/application version');
 function freeze(value) {if(value&&typeof value==='object'&&!Object.isFrozen(value)){Object.freeze(value);for(const v of Object.values(value))freeze(v);}return value;}
 freeze(raw);simdata.setSimData(raw);support.setGameData(null);bounds.rememberOfficialBounds(raw);
 if(traits.length)await (await import(origin+'/js/battle/operatorTraits.js')).installOperatorTraits(raw,origin+'/sim/');
