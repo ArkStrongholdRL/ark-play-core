@@ -187,6 +187,7 @@ export class GameClient {
         this.authorities.clear();await this.close();return {status:'left',storage:'managed-by-game-site'};
       }
       if(this.room?.content?.vanilla===false)throw new Error('Gameplay plugin content sets are not supported by this client version');
+      if(this.room?.version)throw new Error('Historical-version rooms are not supported by this client; use the default version');
       if(payload.op==='view'){await this.settle(signal);const result=await this.view();this.uncertain=false;return result;}
       if(payload.op==='start') {
         if(this.room?.inMatch)throw new Error('A site game is already running; use ark_view or explicitly finish');
@@ -196,6 +197,7 @@ export class GameClient {
           if(!/^[A-Z0-9]{4}$/.test(code))throw new Error('Expected a four-character room code');
           await this.request({t:'room.join',code});
           if(this.room?.content?.vanilla===false)throw new Error('Gameplay plugin content sets are not supported by this client version');
+      if(this.room?.version)throw new Error('Historical-version rooms are not supported by this client; use the default version');
           await this.request({t:'room.ready',ready:true});
         } else {
           await this.request({t:'room.create',mode:'solo',difficulty:payload.difficulty||'ABYSS'});

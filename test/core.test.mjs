@@ -20,6 +20,10 @@ test('configured room, per-call override and solo routes use native lobby intent
     sent.length=0;await start.execute(start.schema.parse({roomCode:''}));
     assert.deepEqual(sent,[{t:'room.create',mode:'solo',difficulty:'ABYSS'},{t:'room.start'}]);
     assert.equal(start.schema.safeParse({roomCode:'!'}).success,false);
+    sent.length=0;r.client.request=async message=>{sent.push(message);if(message.t==='room.join')r.client.room={version:'act1autochess'};};
+    await assert.rejects(start.execute(start.schema.parse({roomCode:'AB12'})),/Historical-version rooms/);
+    assert.deepEqual(sent,[{t:'room.join',code:'AB12'}],'unsupported historical rooms are never readied');
+    r.client.room=null;
     sent.length=0;r.client.request=async message=>{sent.push(message);throw new Error('ROOM_NOT_FOUND');};
     await assert.rejects(start.execute(start.schema.parse({roomCode:'AB12'})),/ROOM_NOT_FOUND/);
     assert.deepEqual(sent,[{t:'room.join',code:'AB12'}]);
